@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: app
+    ports:
+      - "3002:3000"
+    networks:
+      - software
+    environment:
+      PORT: "3000"
+      MONGO_URI: "mongodb://mongo:27017/test"
+  mongo:
+    image: mongo
+    ports:
+      - 27017:27017
+    networks:
+      - software
+    volumes:
+      - $PWD/mongo-data:/data/db'
+  redis:
+    image: "redis:alpine"
+    command: redis-server
+    networks:
+      - software
+    ports:
+      - 6379:6379
+    volumes:
+      - $PWD/redis-data:/var/lib/redis
+      - $PWD/redis.conf:/usr/local/etc/redis/redis.conf
+    environment:
+      - REDIS_REPLICATION_MODE=master
+
+networks:
+  software:
+    driver: bridge
