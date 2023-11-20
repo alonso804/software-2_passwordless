@@ -6,6 +6,7 @@ import type { SignupRequest } from 'src/dtos/auth/signup';
 import { generateJwt, verifyJwt } from 'src/helpers/utils';
 import { logger } from 'src/logger';
 import UserModel from 'src/models/user';
+import { addSession, checkSession, getSession, removeSession } from 'src/services/redis-sessions';
 import { sendMagicLinkLogin, sendSignupConfirmation } from 'src/services/send-email';
 
 class AuthController {
@@ -16,6 +17,10 @@ class AuthController {
 
     if (!user) {
       return res.status(401).json({ message: 'Invalid username' });
+    }
+
+    if (await checkSession(String(user._id))) {
+      return res.status(200).json({ message: 'Already logged in' });
     }
 
     await sendMagicLinkLogin(user.email, generateJwt({ userId: user._id }));
@@ -33,13 +38,51 @@ class AuthController {
     try {
       const decodedToken = verifyJwt(token) as { userId: string };
 
-      const user = await UserModel.findById(decodedToken.userId);
+      const user = await UserModel.findById(decodedToken.userId).lean();
 
       if (!user) {
         return res.status(401).json({ message: 'Invalid token' });
       }
 
+      if (await checkSession(String(user._id))) {
+        return res.status(200).json({ message: 'Already logged in' });
+      }
+
+      await addSession(String(user._id), token);
+
       return res.status(200).json({ username: user.username, token: token });
+    } catch (err) {
+      logger.error(err);
+
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+  }
+
+  static async logout(req: Request, res: Response): Promise<Response> {
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+
+    try {
+      const decodedToken = verifyJwt(token) as { userId: string };
+
+      const user = await UserModel.findById(decodedToken.userId).lean();
+
+      if (!user) {
+        return res.status(401).json({ message: 'Invalid token' });
+      }
+
+      const session = await getSession(String(user._id));
+
+      if (!session || session !== token) {
+        return res.status(401).json({ message: 'Invalid token' });
+      }
+
+      await removeSession(String(user._id));
+
+      return res.status(200).json({ ok: true });
     } catch (err) {
       logger.error(err);
 
@@ -87,7 +130,9 @@ class AuthController {
     }
   }
 
-  static async registerPublicKey(_req: Request, res: Response): Promise<void> {
+  static async registerPublicKey(req: Request, res: Response): Promise<void> {
+    const jwt = req.headers.authorization?.split(' ')[1];
+
     try {
       const publicKey = await fs.readFile('jwtRS256.pub', 'utf8');
 
@@ -98,8 +143,7 @@ class AuthController {
         },
         {
           headers: {
-            authorization:
-              'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXJ2ZXJJZCI6IjY1MTQ0YTViNWUyMjlhZmZjMGRiOTQ0MSIsImlhdCI6MTY5NTgzMDYwMiwiZXhwIjoxNjk1ODMxNTAyfQ.B8c3OW5ZCFZbp8rckSfFWAlBjwuERLET-KopM014ovE',
+            authorization: `Bearer ${jwt}`,
           },
         },
       );

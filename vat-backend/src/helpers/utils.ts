@@ -3,9 +3,11 @@ import jwt from 'jsonwebtoken';
 import BadRequest from 'src/errors/bad-request';
 import type { AnyZodObject } from 'zod';
 
+import { JWT_EXPIRY } from './constants';
+
 export const generateJwt = (payload: string | Record<string, unknown>): string => {
   return jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: 15 * 60,
+    expiresIn: JWT_EXPIRY,
   });
 };
 

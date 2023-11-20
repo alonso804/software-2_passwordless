@@ -13,6 +13,8 @@ router.post('/confirm-signup', AuthController.confirmSignup);
 
 router.post('/login', validateSchema(loginSchema), AuthController.login);
 
+router.post('/logout', AuthController.logout);
+
 router.post('/confirm-login', AuthController.confirmLogin);
 
 router.post('/register-public-key', AuthController.registerPublicKey);

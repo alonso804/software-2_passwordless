@@ -1,9 +1,10 @@
 import './env';
 import './mongo';
+import './redis';
 import 'express-async-errors';
 
-import express from 'express';
 import cors from 'cors';
+import express from 'express';
 
 import { logger } from './logger';
 import errorHandler from './middlewares/error-handler';
